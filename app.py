@@ -65,7 +65,7 @@ def test():
     db.session.add(qa)
     db.session.commit()
     print(qa.author_name)
-    return 'is ok'
+    return "is ok"
 
 
 @app.route('/search', methods=['GET', 'POST'])
@@ -83,8 +83,6 @@ def is_login():
     if not user_name:
         return False
     user = User.query.filter_by(name=user_name).first()
-    if not user:
-        return False
     return user
 
 @app.route('/qa/comment/<int:question_id>', methods=['GET', 'POST'])
