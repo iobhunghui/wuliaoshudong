@@ -52,9 +52,10 @@ class User(db.Model):
         self.passwd = generate_password_hash(passwd)
 
 
-# db.drop_all()
-db.create_all()
 app.register_blueprint(user_bp)
+with app.app_context():
+    # db.drop_all()
+    db.create_all()
 
 
 @app.route('/test')
@@ -78,10 +79,11 @@ def search():
         return redirect('/')
 
 
-def is_login():
+def get_user():
     user_name = session.get('user_name')
+    print(f"username:{user_name}")
     if not user_name:
-        return False
+        return None
     user = User.query.filter_by(name=user_name).first()
     return user
 
@@ -90,7 +92,7 @@ def comment(question_id):
     if request.method == "GET":
         return render_template('comment.html', question_id=question_id)
     else:
-        user = is_login()
+        user = get_user()
         if user:
             question = Question.query.filter_by(id=question_id).first()
             if question:
@@ -103,11 +105,11 @@ def comment(question_id):
                     db.session.commit()
                     return redirect(url_for('detail', question_id=question_id))
                 else:
-                    return "评论字数应小于800"
+                    return "the length of comments must be less than 800"
             else:
-                return "没有找到该问题"
+                return "no questions confrom limit condition were found"
         else:
-            return '请先登录'
+            return "Please Sign in first"
 
 
 @app.route('/qa/<int:question_id>')
@@ -116,7 +118,7 @@ def detail(question_id):
     if question:
         return render_template('detail.html', question=question)
     else:
-        return '没有找到id为' + str(question_id) + '的文章'
+        return f"issues were not found for id:{question_id}"
 
 
 @app.route('/', methods=['GET'])
@@ -127,7 +129,7 @@ def show_qa():
 
 @app.route('/qa', methods=['GET', 'POST'])
 def post_qa():
-    user = is_login()
+    user = get_user()
     if user:
         if request.method == 'GET':
             return render_template('qa.html')
@@ -150,7 +152,7 @@ def post_qa():
             else:
                 return redirect(url_for('post_qa'))
     else:
-        return "请先进行登录"
+        return "Please Sign in first"
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -181,22 +183,19 @@ def register_judge():
 def login_judge():
     if request.method == "GET":
         return render_template('login.html')
-    else:
-        form = LoginForm(request.form)
-        if form.validate():
-            username = form.username.data
-            passwd = form.passwd.data
-            print(username)
-            print(passwd)
-            user = User.query.filter_by(name=username).first()
+    form = LoginForm(request.form)
+    if form.validate():
+        username = form.username.data
+        passwd = form.passwd.data
+        print(username)
+        print(passwd)
+        user = User.query.filter_by(name=username).first()
+        if user and check_password_hash(user.passwd, passwd):
             print(user.passwd)
-            if user and check_password_hash(user.passwd, passwd):
-                session['user_name'] = user.name
-                return redirect('/')
-            else:
-                return redirect(url_for('login_judge'))
-        else:
-            return redirect(url_for('login_judge'))
+            session["user_name"] = user.name
+            return redirect('/')
+        return redirect(url_for('login_judge'))
+    return redirect(url_for('login_judge'))
 
 
 @app.route('/logout')
