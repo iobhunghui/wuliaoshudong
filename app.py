@@ -91,25 +91,21 @@ def get_user():
 def comment(question_id):
     if request.method == "GET":
         return render_template('comment.html', question_id=question_id)
-    else:
-        user = get_user()
-        if user:
-            question = Question.query.filter_by(id=question_id).first()
-            if question:
-                form = CommentForm(request.form)
-                if form.validate():
-                    comment = Comment(form.content.data)
-                    comment.author = user
-                    comment.question = question
-                    db.session.add(comment)
-                    db.session.commit()
-                    return redirect(url_for('detail', question_id=question_id))
-                else:
-                    return "the length of comments must be less than 800"
-            else:
-                return "no questions confrom limit condition were found"
-        else:
-            return "Please Sign in first"
+    user = get_user()
+    if not user:
+        return "Please Sign in first"
+    question = Question.query.filter_by(id=question_id).first()
+    if not question:
+        return "no questions confrom limit condition were found"
+    form = CommentForm(request.form)
+    if not form.validate():
+        return "the length of comments must be less than 800"
+    comment = Comment(form.content.data)
+    comment.author = user
+    comment.question = question
+    db.session.add(comment)
+    db.session.commit()
+    return redirect(url_for('detail', question_id=question_id))
 
 
 @app.route('/qa/<int:question_id>')
@@ -117,8 +113,7 @@ def detail(question_id):
     question = Question.query.filter_by(id=question_id).first()
     if question:
         return render_template('detail.html', question=question)
-    else:
-        return f"issues were not found for id:{question_id}"
+    return f"issues were not found by id:{question_id}"
 
 
 @app.route('/', methods=['GET'])
@@ -130,53 +125,46 @@ def show_qa():
 @app.route('/qa', methods=['GET', 'POST'])
 def post_qa():
     user = get_user()
-    if user:
-        if request.method == 'GET':
-            return render_template('qa.html')
-        else:
-            form = QaForm(request.form)
-            if form.validate():
-                title = form.title.data
-                content = form.content.data
-                print(title)
-                print(content)
-                has_qa = Question.query.filter_by(title=title).first()
-                if not has_qa:
-                    question = Question(title=title, content=content)
-                    question.author = user
-                    db.session.add(question)
-                    db.session.commit()
-                    return redirect('/')
-                else:
-                    return redirect(url_for('post_qa'))
-            else:
-                return redirect(url_for('post_qa'))
-    else:
+    if not user:
         return "Please Sign in first"
+    if request.method == 'GET':
+        return render_template('qa.html')
+    form = QaForm(request.form)
+    if not form.validate():
+        return redirect(url_for('post_qa'))
+    title = form.title.data
+    content = form.content.data
+    print(title)
+    print(content)
+    has_qa = Question.query.filter_by(title=title).first()
+    if has_qa:
+        return redirect(url_for('post_qa'))
+    question = Question(title=title, content=content)
+    question.author = user
+    db.session.add(question)
+    db.session.commit()
+    return redirect('/')
 
 
 @app.route('/register', methods=['GET', 'POST'])
 def register_judge():
     if request.method == 'GET':
         return render_template('register.html')
-    else:
-        form = RegisterForm(request.form)
-        if form.validate():
-            username = form.username.data
-            email_data = form.email.data
-            user = User.query.filter_by(name=username).first()
-            email = User.query.filter_by(email=email_data).first()
-            if not user and not email:
-                print(form.passwd.data)
-                passwd = form.passwd.data
-                user = User(username, passwd, email_data)
-                db.session.add(user)
-                db.session.commit()
-                return redirect(url_for('login_judge'))
-            else:
-                return redirect(url_for('register_judge'))
-        else:
-            return redirect(url_for('register_judge'))
+    form = RegisterForm(request.form)
+    if not form.validate():
+        return redirect(url_for('register_judge'))
+    username = form.username.data
+    email_data = form.email.data
+    user = User.query.filter_by(name=username).first()
+    email = User.query.filter_by(email=email_data).first()
+    if user or email:
+        return redirect(url_for('register_judge'))
+    print(form.passwd.data)
+    passwd = form.passwd.data
+    user = User(username, passwd, email_data)
+    db.session.add(user)
+    db.session.commit()
+    return redirect(url_for('login_judge'))
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -205,4 +193,4 @@ def session_clear():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=80, debug=False)
